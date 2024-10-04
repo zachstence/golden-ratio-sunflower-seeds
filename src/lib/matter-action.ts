@@ -1,6 +1,6 @@
 import type { Action } from 'svelte/action';
 import matterjs, { type Body } from 'matter-js';
-const { Bodies, Composite, Engine, World } = matterjs;
+const { Bodies, Common, Composite, Engine, World } = matterjs;
 
 export const matter: Action<HTMLCanvasElement> = (canvas) => {
 	const ctx = canvas.getContext('2d');
@@ -31,8 +31,17 @@ export const matter: Action<HTMLCanvasElement> = (canvas) => {
 		ctx.fill();
 	};
 
+	let lastTime = Common.now();
 	const renderCicle = (body: Body) => {
 		ctx.beginPath();
+
+		const now = Common.now();
+		if (now - lastTime >= 100) {
+			body.vertices[0].x += 1;
+			body.vertices[0].y += 1;
+			lastTime = now;
+		}
+
 		body.vertices.forEach(({ x, y }) => ctx.lineTo(x, y));
 		ctx.closePath();
 		ctx.fillStyle = 'blue';
@@ -61,3 +70,17 @@ export const matter: Action<HTMLCanvasElement> = (canvas) => {
 		}
 	};
 };
+
+// const every = (ms: number, fn: (...args: unknown[]) => void): (() => void) => {
+// 	let lastRun = Common.now();
+
+// 	const run = () => {
+// 		const now = Common.now();
+// 		if (now - lastRun >= ms) {
+// 			fn();
+// 			lastRun = now;
+// 		}
+// 	};
+
+// 	return run;
+// };
