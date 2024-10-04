@@ -1,4 +1,9 @@
 export class Point {
+	prevCW: Point | undefined;
+	prevCCW: Point | undefined;
+	nextCW: Point | undefined;
+	nextCCW: Point | undefined;
+
 	private constructor(
 		readonly id: number,
 		readonly r: number,
@@ -6,6 +11,46 @@ export class Point {
 		readonly x: number,
 		readonly y: number
 	) {}
+
+	get cwChain(): Point[] {
+		const back: Point[] = [];
+		const forward: Point[] = [];
+
+		let current: Point | undefined = this.prevCW;
+		while (current) {
+			if (current) back.push(current);
+			current = current.prevCW;
+		}
+
+		current = this.nextCW;
+		while (current) {
+			if (current) forward.push(current);
+			current = current.nextCW;
+		}
+
+		back.reverse();
+		return [...back, this, ...forward];
+	}
+
+	get ccwChain(): Point[] {
+		const back: Point[] = [];
+		const forward: Point[] = [];
+
+		let current: Point | undefined = this.prevCCW;
+		while (current) {
+			if (current) back.push(current);
+			current = current.prevCCW;
+		}
+
+		current = this.nextCCW;
+		while (current) {
+			if (current) forward.push(current);
+			current = current.nextCCW;
+		}
+
+		back.reverse();
+		return [...back, this, ...forward];
+	}
 
 	static fromPolar = (id: number, r: number, deg: number): Point => {
 		const rad = (deg * Math.PI) / 180;
@@ -29,25 +74,5 @@ export class Point {
 	isClockwise = (other: Point): boolean => {
 		const diff = (other.deg % 360) - (this.deg % 360);
 		return diff > 0 && diff < 180;
-	};
-
-	getNeighbors = (allPoints: Point[]): [Point | undefined, Point | undefined] => {
-		const pointsWithLargerR = allPoints.filter((p) => p.r > this.r);
-		return pointsWithLargerR.reduce(
-			([closestCW, closestCCW], current) => {
-				if (this.isClockwise(current)) {
-					if (!closestCW) return [current, closestCCW];
-					const closestDistance = this.getDistance(closestCW);
-					const currentDistance = this.getDistance(current);
-					return [closestDistance < currentDistance ? closestCW : current, closestCCW];
-				} else {
-					if (!closestCCW) return [closestCW, current];
-					const closestDistance = this.getDistance(closestCCW);
-					const currentDistance = this.getDistance(current);
-					return [closestCW, closestDistance < currentDistance ? closestCCW : current];
-				}
-			},
-			[undefined as Point | undefined, undefined as Point | undefined]
-		);
 	};
 }
