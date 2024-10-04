@@ -1,20 +1,51 @@
 import type { Action } from 'svelte/action';
-import matterjs from 'matter-js';
-const { Bodies, Composite, Engine, Render, Runner } = matterjs;
+import matterjs, { type Body } from 'matter-js';
+const { Bodies, Common, Composite, Engine, World } = matterjs;
 
-export const matter: Action<HTMLElement> = (element) => {
-	const engine = Engine.create();
-	const render = Render.create({ engine, element });
+export const matter: Action<HTMLCanvasElement> = (canvas) => {
+	const ctx = canvas.getContext('2d');
+	if (!ctx) return;
 
-	const boxA = Bodies.rectangle(400, 200, 80, 80);
-	const boxB = Bodies.rectangle(450, 50, 80, 80);
-	const ground = Bodies.rectangle(400, 610, 810, 60, { isStatic: true });
+	canvas.width = 500;
+	canvas.height = 500;
 
-	Composite.add(engine.world, [boxA, boxB, ground]);
+	const engine = Engine.create({ gravity: { x: 0, y: 0 } });
 
-	Render.run(render);
+	const box = Bodies.rectangle(250, 250, 40, 40);
 
-	const runner = Runner.create();
+	Composite.add(engine.world, [box]);
 
-	Runner.run(runner, engine);
+	let i = 0;
+	let lastTime = Common.now();
+	const colors = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet'];
+	const renderBody = (body: Body) => {
+		ctx.beginPath();
+		body.vertices.forEach(({ x, y }) => ctx.lineTo(x, y));
+		ctx.closePath();
+		if (Common.now() - lastTime > 1000) {
+			i = (i + 1) % colors.length;
+			lastTime = Common.now();
+		}
+		ctx.fillStyle = colors[i];
+		ctx.fill();
+	};
+
+	let frame: number;
+	const run = () => {
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		renderBody(box);
+		Engine.update(engine);
+		frame = requestAnimationFrame(run);
+	};
+
+	run();
+
+	return {
+		destroy: () => {
+			canvas.remove();
+			World.clear(engine.world, false);
+			Engine.clear(engine);
+			cancelAnimationFrame(frame);
+		}
+	};
 };
