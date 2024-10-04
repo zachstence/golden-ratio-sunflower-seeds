@@ -9,11 +9,18 @@ export const matter: Action<HTMLCanvasElement> = (canvas) => {
 	canvas.width = 500;
 	canvas.height = 500;
 
-	const engine = Engine.create({ gravity: { x: 0, y: 0 } });
+	const engine = Engine.create({
+		gravity: { x: 0, y: 0 }
+	});
 
-	const box = Bodies.rectangle(250, 250, 40, 40);
+	const circle = Bodies.circle(250, 250, 20);
+	const leftWall = Bodies.rectangle(100, 250, 10, 300, { isStatic: true });
+	const topWall = Bodies.rectangle(250, 100, 300, 10, { isStatic: true });
+	const rightWall = Bodies.rectangle(400, 250, 10, 300, { isStatic: true });
+	const bottomWall = Bodies.rectangle(250, 400, 300, 10, { isStatic: true });
+	const bodies = [circle, leftWall, topWall, rightWall, bottomWall];
 
-	Composite.add(engine.world, [box]);
+	Composite.add(engine.world, bodies);
 
 	let i = 0;
 	let lastTime = Common.now();
@@ -33,7 +40,7 @@ export const matter: Action<HTMLCanvasElement> = (canvas) => {
 	let frame: number;
 	const run = () => {
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
-		renderBody(box);
+		bodies.forEach(renderBody);
 		Engine.update(engine);
 		frame = requestAnimationFrame(run);
 	};
