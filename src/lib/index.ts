@@ -6,6 +6,6 @@ export const generatePoints = (deltaR: number, deltaDeg: number, numPoints: numb
 	return Array.from({ length: numPoints }, (_, i) => {
 		const angle = i * deltaDeg * 360;
 		const r = deltaR * Math.floor(angle / 360);
-		return Point.fromPolar(r, angle);
+		return Point.fromPolar(i, r, angle);
 	});
 };
