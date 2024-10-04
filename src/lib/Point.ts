@@ -31,17 +31,23 @@ export class Point {
 		return diff > 0 && diff < 180;
 	};
 
-	getClockwiseNeighbor = (allPoints: Point[]): Point | undefined => {
+	getNeighbors = (allPoints: Point[]): [Point | undefined, Point | undefined] => {
 		const pointsWithLargerR = allPoints.filter((p) => p.r > this.r);
-		return pointsWithLargerR.reduce((closest, current) => {
-			if (!this.isClockwise(current)) {
-				return closest;
-			}
-
-			const closestDistance = this.getDistance(closest);
-			const currentDistance = this.getDistance(current);
-
-			return closestDistance < currentDistance ? closest : current;
-		}, pointsWithLargerR[0]);
+		return pointsWithLargerR.reduce(
+			([closestCW, closestCCW], current) => {
+				if (this.isClockwise(current)) {
+					if (!closestCW) return [current, closestCCW];
+					const closestDistance = this.getDistance(closestCW);
+					const currentDistance = this.getDistance(current);
+					return [closestDistance < currentDistance ? closestCW : current, closestCCW];
+				} else {
+					if (!closestCCW) return [closestCW, current];
+					const closestDistance = this.getDistance(closestCCW);
+					const currentDistance = this.getDistance(current);
+					return [closestCW, closestDistance < currentDistance ? closestCCW : current];
+				}
+			},
+			[undefined as Point | undefined, undefined as Point | undefined]
+		);
 	};
 }
