@@ -37,8 +37,15 @@ export const matter: Action<HTMLCanvasElement> = (canvas) => {
 
 		const now = Common.now();
 		if (now - lastTime >= 100) {
-			body.vertices[0].x += 1;
-			body.vertices[0].y += 1;
+			body.vertices.forEach((vertex) => {
+				const center = body.position;
+				let rx = vertex.x - center.x;
+				let ry = vertex.y - center.y;
+				const { r, theta } = cartesianToPolar(rx, ry);
+				({ x: rx, y: ry } = polarToCartesian(r + 1, theta));
+				vertex.x = center.x + rx;
+				vertex.y = center.y + ry;
+			});
 			lastTime = now;
 		}
 
@@ -84,3 +91,13 @@ export const matter: Action<HTMLCanvasElement> = (canvas) => {
 
 // 	return run;
 // };
+
+const cartesianToPolar = (x: number, y: number): { r: number; theta: number } => ({
+	r: Math.sqrt(x ** 2 + y ** 2),
+	theta: Math.atan2(y, x)
+});
+
+const polarToCartesian = (r: number, theta: number): { x: number; y: number } => ({
+	x: r * Math.cos(theta),
+	y: r * Math.sin(theta)
+});
