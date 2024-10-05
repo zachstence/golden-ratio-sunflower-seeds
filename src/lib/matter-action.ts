@@ -1,5 +1,5 @@
 import type { Action } from 'svelte/action';
-import matterjs, { type Body, type Vector } from 'matter-js';
+import matterjs, { type Body, type IBodyDefinition, type Vector } from 'matter-js';
 const { Bodies, Common, Composite, Engine, Events, World } = matterjs;
 
 export const matter: Action<HTMLCanvasElement> = (canvas) => {
@@ -14,14 +14,19 @@ export const matter: Action<HTMLCanvasElement> = (canvas) => {
 	});
 
 	const collidedVertices = new Set<Vector>();
+	// const collidedVerticesByBodyId: Record<number, Set<Vector>> = {};
 
-	const circle = Bodies.circle(250, 250, 20);
-	const leftWall = Bodies.rectangle(100, 250, 5, 305, { isStatic: true, isSensor: true });
-	const topWall = Bodies.rectangle(250, 100, 305, 5, { isStatic: true, isSensor: true });
-	const rightWall = Bodies.rectangle(400, 250, 5, 305, { isStatic: true, isSensor: true });
-	const bottomWall = Bodies.rectangle(250, 400, 305, 5, { isStatic: true, isSensor: true });
+	const circle1 = circle(150, 150, 20, { id: 1, isSensor: true, angle: 30 });
+	const circle2 = circle(350, 350, 20, { id: 2, isSensor: true });
+	const circles = [circle1, circle2];
+
+	const leftWall = Bodies.rectangle(100, 250, 5, 305, { isSensor: true });
+	const topWall = Bodies.rectangle(250, 100, 305, 5, { isSensor: true });
+	const rightWall = Bodies.rectangle(400, 250, 5, 305, { isSensor: true });
+	const bottomWall = Bodies.rectangle(250, 400, 305, 5, { isSensor: true });
 	const walls = [leftWall, topWall, rightWall, bottomWall];
-	const bodies = [circle, ...walls];
+
+	const bodies = [...circles, ...walls];
 
 	Composite.add(engine.world, bodies);
 
@@ -33,13 +38,9 @@ export const matter: Action<HTMLCanvasElement> = (canvas) => {
 		ctx.fill();
 	};
 
-	let lastTime = Common.now();
+	const lastTimeByBodyId: Record<number, number> = {};
 	const updateCircle = (body: Body) => {
-		if (body.vertices.every((vertex) => collidedVertices.has(vertex))) {
-			console.log('done');
-			shouldRun = false;
-		}
-
+		const lastTime = lastTimeByBodyId[body.id] ?? 0;
 		const now = Common.now();
 		if (now - lastTime >= 10) {
 			body.vertices.forEach((vertex) => {
@@ -48,11 +49,11 @@ export const matter: Action<HTMLCanvasElement> = (canvas) => {
 				let rx = vertex.x - center.x;
 				let ry = vertex.y - center.y;
 				const { r, theta } = cartesianToPolar(rx, ry);
-				({ x: rx, y: ry } = polarToCartesian(r + 1, theta));
+				({ x: rx, y: ry } = polarToCartesian(r + 0.5, theta));
 				vertex.x = center.x + rx;
 				vertex.y = center.y + ry;
 			});
-			lastTime = now;
+			lastTimeByBodyId[body.id] = now;
 		}
 	};
 
@@ -60,32 +61,47 @@ export const matter: Action<HTMLCanvasElement> = (canvas) => {
 		ctx.beginPath();
 		body.vertices.forEach(({ x, y }) => ctx.lineTo(x, y));
 		ctx.closePath();
-		ctx.fillStyle = 'blue';
-		ctx.fill();
+		ctx.strokeStyle = body.id === 1 ? 'blue' : 'red';
+		ctx.stroke();
 	};
 
 	Events.on(engine, 'collisionActive', (event) => {
 		event.pairs.forEach((pair) => {
 			pair.contacts.forEach((contact) => {
 				if (!contact.vertex) return;
+
+				const circle = circles.find(
+					(circle) => circle.id === pair.bodyA.id || circle.id === pair.bodyB.id
+				);
+				if (!circle) {
+					// console.error('Circle not found');
+					return;
+				}
+
 				collidedVertices.add(contact.vertex);
 			});
 		});
 	});
 
 	let frame: number;
-	let shouldRun = true;
 	const run = () => {
-		if (!shouldRun) return;
-
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+		circles.forEach(updateCircle);
+
 		walls.forEach(renderWall);
-		updateCircle(circle);
-		renderCicle(circle);
+		circles.forEach(renderCicle);
 
 		Engine.update(engine);
-		frame = requestAnimationFrame(run);
+
+		const done = circles.every((circle) =>
+			circle.vertices.every((vertex) => collidedVertices.has(vertex))
+		);
+		if (!done) {
+			frame = requestAnimationFrame(run);
+		} else {
+			console.log('done');
+		}
 	};
 	run();
 
@@ -122,3 +138,18 @@ const polarToCartesian = (r: number, theta: number): { x: number; y: number } =>
 	x: r * Math.cos(theta),
 	y: r * Math.sin(theta)
 });
+
+const circle = (
+	x: number,
+	y: number,
+	r: number,
+	opts?: IBodyDefinition & { numVertices?: number }
+): Body => {
+	const _numVertices = opts?.numVertices ?? 20;
+	const vertices = Array.from({ length: _numVertices }, (_, i) => {
+		const theta = (i / _numVertices) * 2 * Math.PI;
+		return { x: x + r * Math.cos(theta), y: y + r * Math.sin(theta) };
+	});
+	const body = Bodies.fromVertices(x, y, [vertices], opts);
+	return body;
+};
