@@ -1,5 +1,5 @@
 import type { Action } from 'svelte/action';
-import matterjs, { type Body } from 'matter-js';
+import matterjs, { type Body, type Vector } from 'matter-js';
 const { Bodies, Common, Composite, Engine, Events, World } = matterjs;
 
 export const matter: Action<HTMLCanvasElement> = (canvas) => {
@@ -13,7 +13,7 @@ export const matter: Action<HTMLCanvasElement> = (canvas) => {
 		gravity: { x: 0, y: 0 }
 	});
 
-	let hasCollided = false;
+	const collidedVertices = new Set<Vector>();
 
 	const circle = Bodies.circle(250, 250, 20);
 	const leftWall = Bodies.rectangle(100, 250, 5, 305, { isStatic: true, isSensor: true });
@@ -34,12 +34,16 @@ export const matter: Action<HTMLCanvasElement> = (canvas) => {
 	};
 
 	let lastTime = Common.now();
-	const renderCicle = (body: Body) => {
-		ctx.beginPath();
+	const updateCircle = (body: Body) => {
+		if (body.vertices.every((vertex) => collidedVertices.has(vertex))) {
+			console.log('done');
+			shouldRun = false;
+		}
 
 		const now = Common.now();
-		if (!hasCollided && now - lastTime >= 10) {
+		if (now - lastTime >= 10) {
 			body.vertices.forEach((vertex) => {
+				if (collidedVertices.has(vertex)) return;
 				const center = body.position;
 				let rx = vertex.x - center.x;
 				let ry = vertex.y - center.y;
@@ -50,41 +54,35 @@ export const matter: Action<HTMLCanvasElement> = (canvas) => {
 			});
 			lastTime = now;
 		}
+	};
 
+	const renderCicle = (body: Body) => {
+		ctx.beginPath();
 		body.vertices.forEach(({ x, y }) => ctx.lineTo(x, y));
 		ctx.closePath();
 		ctx.fillStyle = 'blue';
 		ctx.fill();
 	};
 
-	const collisionMarkers: Body[] = [];
-	Events.on(engine, 'collisionStart', (event) => {
-		hasCollided = true;
-		console.log(circle.vertices);
+	Events.on(engine, 'collisionActive', (event) => {
 		event.pairs.forEach((pair) => {
 			pair.contacts.forEach((contact) => {
 				if (!contact.vertex) return;
-				console.log(contact.vertex);
-				const marker = Bodies.circle(contact.vertex.x, contact.vertex.y, 5, { isStatic: true });
-				collisionMarkers.push(marker);
+				collidedVertices.add(contact.vertex);
 			});
 		});
 	});
 
-	const renderCollisionMarker = (body: Body) => {
-		ctx.beginPath();
-		ctx.arc(body.position.x, body.position.y, 5, 0, 2 * Math.PI);
-		ctx.fillStyle = 'red';
-		ctx.fill();
-	};
-
 	let frame: number;
+	let shouldRun = true;
 	const run = () => {
+		if (!shouldRun) return;
+
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 
 		walls.forEach(renderWall);
+		updateCircle(circle);
 		renderCicle(circle);
-		collisionMarkers.forEach(renderCollisionMarker);
 
 		Engine.update(engine);
 		frame = requestAnimationFrame(run);
